@@ -66,6 +66,14 @@ jobs:
     uses: ./.github/workflows/dast-zap-test.yml
     secrets: inherit
 
+  # ═══════════════════════════════════════════════
+  # ÉTAPE 9 : DÉPLOIEMENT EN PRODUCTION
+  # ═══════════════════════════════════════════════
+  deploy-docker:
+    needs: dast-zap-test
+    uses: ./.github/workflows/deploy-production-server.yml
+    secrets: inherit
+
   send-notifications:
     name: Send Notifications
     needs:
@@ -74,6 +82,7 @@ jobs:
       - secret-scanning
       - secure-iac-dockerfile-scan
       - build-and-scan-docker
+      - deploy-docker
     runs-on: ubuntu-latest
     if: always()
 
@@ -88,4 +97,5 @@ jobs:
           echo "Secret Scanning: ${{ needs.secret-scanning.result }}"
           echo "IaC Security: ${{ needs.secure-iac-dockerfile-scan.result }}"
           echo "Docker Build: ${{ needs.build-and-scan-docker.result }}"
+          echo "Deployment: ${{ needs.deploy-docker.result }}"
           echo "═══════════════════════════════════════"
