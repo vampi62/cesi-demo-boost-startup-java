@@ -34,3 +34,58 @@ jobs:
   secret-scanning:
     needs: build-and-test  # ⚠️ S'exécute en PARALLÈLE avec code-quality-sast
     uses: ./.github/workflows/secret-scanning.yml
+
+  # ═══════════════════════════════════════════════
+  # ÉTAPE 5 : SÉCURITÉ INFRASTRUCTURE AS CODE
+  # ═══════════════════════════════════════════════
+  secure-iac-dockerfile-scan:
+    needs: build-and-test  # Toujours en parallèle
+    uses: ./.github/workflows/secure-iac-dockerfile-scan.yml
+
+  # ═══════════════════════════════════════════════
+  # ÉTAPE 6 : BUILD & SCAN DOCKER
+  # ═══════════════════════════════════════════════
+  build-and-scan-docker:
+    needs: [code-quality-sast, secret-scanning, secure-iac-dockerfile-scan]
+    uses: ./.github/workflows/build-docker-image.yml
+    secrets: inherit
+
+  # ═══════════════════════════════════════════════
+  # ÉTAPE 8 : PUBLICATION DOCKER HUB
+  # ═══════════════════════════════════════════════
+  publish-docker-hub:
+    needs: [build-and-scan-docker]
+    uses: ./.github/workflows/publish-docker-hub.yml
+    secrets: inherit
+
+  # ═══════════════════════════════════════════════
+  # ÉTAPE 9 : DAST (Après publication Docker Hub)
+  # ═══════════════════════════════════════════════
+  dast-zap-test:
+    needs: publish-docker-hub
+    uses: ./.github/workflows/dast-zap-test.yml
+    secrets: inherit
+
+  send-notifications:
+    name: Send Notifications
+    needs:
+      - build-and-test
+      - code-quality-sast
+      - secret-scanning
+      - secure-iac-dockerfile-scan
+      - build-and-scan-docker
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: 📊 Check pipeline status
+        run: |
+          echo "═══════════════════════════════════════"
+          echo "📊 PIPELINE STATUS REPORT"
+          echo "═══════════════════════════════════════"
+          echo "Build & Test: ${{ needs.build-and-test.result }}"
+          echo "SAST: ${{ needs.code-quality-sast.result }}"
+          echo "Secret Scanning: ${{ needs.secret-scanning.result }}"
+          echo "IaC Security: ${{ needs.secure-iac-dockerfile-scan.result }}"
+          echo "Docker Build: ${{ needs.build-and-scan-docker.result }}"
+          echo "═══════════════════════════════════════"
